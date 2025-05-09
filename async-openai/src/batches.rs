@@ -22,7 +22,12 @@ impl<'c, C: Config> Batches<'c, C> {
     /// Creates and executes a batch from an uploaded file of requests
     #[crate::byot(T0 = serde::Serialize, R = serde::de::DeserializeOwned)]
     pub async fn create(&self, request: BatchRequest) -> Result<Batch, OpenAIError> {
-        self.client.post("/batches", request).await
+        let path = self
+            .client
+            .config()
+            .custom_batch_url()
+            .unwrap_or("/batches");
+        self.client.post(path, request).await
     }
 
     /// List your organization's batches.
@@ -31,21 +36,38 @@ impl<'c, C: Config> Batches<'c, C> {
     where
         Q: Serialize + ?Sized,
     {
-        self.client.get_with_query("/batches", &query).await
+        let path = self
+            .client
+            .config()
+            .custom_batch_url()
+            .unwrap_or("/batches");
+        self.client.get_with_query(path, &query).await
     }
 
     /// Retrieves a batch.
     #[crate::byot(T0 = std::fmt::Display, R = serde::de::DeserializeOwned)]
     pub async fn retrieve(&self, batch_id: &str) -> Result<Batch, OpenAIError> {
-        self.client.get(&format!("/batches/{batch_id}")).await
+        let base_path = self
+            .client
+            .config()
+            .custom_batch_url()
+            .unwrap_or("/batches");
+        self.client
+            .get(&format!("{base_path}/{batch_id}"))
+            .await
     }
 
     /// Cancels an in-progress batch. The batch will be in status `cancelling` for up to 10 minutes, before changing to `cancelled`, where it will have partial results (if any) available in the output file.
     #[crate::byot(T0 = std::fmt::Display, R = serde::de::DeserializeOwned)]
     pub async fn cancel(&self, batch_id: &str) -> Result<Batch, OpenAIError> {
+        let base_path = self
+            .client
+            .config()
+            .custom_batch_url()
+            .unwrap_or("/batches");
         self.client
             .post(
-                &format!("/batches/{batch_id}/cancel"),
+                &format!("{base_path}/{batch_id}/cancel"),
                 serde_json::json!({}),
             )
             .await

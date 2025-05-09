@@ -1,4 +1,4 @@
-//! Client configurations: [OpenAIConfig] for OpenAI, [AzureConfig] for Azure OpenAI Service.
+//! Client configurations: [OpenAIConfig] for OpenAI, [AzureConfig] for Azure OpenAI Service and [MistralConfig] for Mistral
 use reqwest::header::{HeaderMap, AUTHORIZATION};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
@@ -9,9 +9,10 @@ pub const OPENAI_API_BASE: &str = "https://api.openai.com/v1";
 pub const OPENAI_ORGANIZATION_HEADER: &str = "OpenAI-Organization";
 /// Project header
 pub const OPENAI_PROJECT_HEADER: &str = "OpenAI-Project";
-
 /// Calls to the Assistants API require that you pass a Beta header
 pub const OPENAI_BETA_HEADER: &str = "OpenAI-Beta";
+/// Mistral v1 API base url
+pub const MISTRAL_API_BASE: &str = "https://api.mistral.ai/v1";
 
 /// [crate::Client] relies on this for every API call on OpenAI
 /// or Azure OpenAI service
@@ -19,10 +20,9 @@ pub trait Config: Clone {
     fn headers(&self) -> HeaderMap;
     fn url(&self, path: &str) -> String;
     fn query(&self) -> Vec<(&str, &str)>;
-
     fn api_base(&self) -> &str;
-
     fn api_key(&self) -> &SecretString;
+    fn custom_batch_url(&self) -> Option<&str>;
 }
 
 /// Configuration for OpenAI API
@@ -130,6 +130,10 @@ impl Config for OpenAIConfig {
     fn query(&self) -> Vec<(&str, &str)> {
         vec![]
     }
+
+    fn custom_batch_url(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// Configuration for Azure OpenAI Service
@@ -209,5 +213,83 @@ impl Config for AzureConfig {
 
     fn query(&self) -> Vec<(&str, &str)> {
         vec![("api-version", &self.api_version)]
+    }
+
+    fn custom_batch_url(&self) -> Option<&str> {
+        None
+    }
+}
+
+/// Configuration for OpenAI API
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+pub struct MistralConfig {
+    api_base: String,
+    api_key: SecretString,
+}
+
+impl Default for MistralConfig {
+    fn default() -> Self {
+        Self {
+            api_base: MISTRAL_API_BASE.to_string(),
+            api_key: std::env::var("MISTRAL_API_KEY")
+                .unwrap_or_else(|_| "".to_string())
+                .into(),
+        }
+    }
+}
+
+impl MistralConfig {
+    /// Create client with default [MISTRAL_API_BASE] url and default API key from MISTRAL_API_KEY env var
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// To use a different API key different from default MISTRAL_API_KEY env var
+    pub fn with_api_key<S: Into<String>>(mut self, api_key: S) -> Self {
+        self.api_key = SecretString::from(api_key.into());
+        self
+    }
+
+    /// To use a API base url different from default [OPENAI_API_BASE]MISTRAL
+    pub fn with_api_base<S: Into<String>>(mut self, api_base: S) -> Self {
+        self.api_base = api_base.into();
+        self
+    }
+}
+
+impl Config for MistralConfig {
+    fn headers(&self) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+
+        headers.insert(
+            AUTHORIZATION,
+            format!("Bearer {}", self.api_key.expose_secret())
+                .as_str()
+                .parse()
+                .unwrap(),
+        );
+
+        headers
+    }
+
+    fn url(&self, path: &str) -> String {
+        format!("{}{}", self.api_base, path)
+    }
+
+    fn api_base(&self) -> &str {
+        &self.api_base
+    }
+
+    fn api_key(&self) -> &SecretString {
+        &self.api_key
+    }
+
+    fn query(&self) -> Vec<(&str, &str)> {
+        vec![]
+    }
+
+    fn custom_batch_url(&self) -> Option<&str> {
+        Some("/batch/jobs")
     }
 }

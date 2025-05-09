@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! Rust library for OpenAI
 //!
 //! ## Creating client
