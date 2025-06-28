@@ -103,7 +103,7 @@ mod tests {
 
         let list_files = client.files().list(&query).await.unwrap();
 
-        assert_eq!(list_files.data.into_iter().last().unwrap(), openai_file);
+        assert_eq!(list_files.data.into_iter().next_back().unwrap(), openai_file);
 
         let retrieved_file = client.files().retrieve(&openai_file.id).await.unwrap();
 

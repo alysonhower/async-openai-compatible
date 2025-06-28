@@ -251,7 +251,7 @@ impl MistralConfig {
         self
     }
 
-    /// To use a API base url different from default [OPENAI_API_BASE]MISTRAL
+    /// To use a API base url different from default [MISTRAL_API_BASE]
     pub fn with_api_base<S: Into<String>>(mut self, api_base: S) -> Self {
         self.api_base = api_base.into();
         self
